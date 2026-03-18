@@ -191,7 +191,7 @@ for proper application-level input validation.
 ---
 <img width="1284" height="775" alt="image" src="https://github.com/user-attachments/assets/97c5b3fa-6279-4c86-8956-a3db03d2e2a6" />
 
-## Part E — Systems Design Under Pressure (10)
+### Part E — Systems Design Under Pressure (10)
 
 
 Deploy a dedicated OOB listener infrastructure using a wildcard DNS zone — for example,
