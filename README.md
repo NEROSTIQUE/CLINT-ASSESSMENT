@@ -17,8 +17,6 @@ Finding ID  : FIND-0114
 Endpoint    : POST /api/v1/fetch-preview
 Parameter   : url
 Cloud       : AWS EC2 (IMDS)
-Timestamp   : 2026-03-18T16:44:41Z
-Tester      : Security Automation Team
 ```
 
 ---
