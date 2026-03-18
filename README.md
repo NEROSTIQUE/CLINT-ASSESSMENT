@@ -117,5 +117,3 @@ f9eb794dc6e328ad95f4aca820967d8b5c2f0711d391ab09f471c9e4a2e9356a
 > | **Recommendation** | **Replace string-match blocklist with allowlist-based URL validation** |
 
 ---
-
-*Security Automation Team — FIND-0114 — 2026-03-18 — Confidential*
