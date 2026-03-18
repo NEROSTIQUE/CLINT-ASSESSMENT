@@ -1,9 +1,9 @@
 # CLINT-ASSESSMENT
 
 
-# Challenge 3 — Part A & Part B
+# Challenge 3
 
-> **Finding ID:** FIND-0114 | **Type:** SSRF — Cloud Metadata Exfiltration
+> **Type:** SSRF — Cloud Metadata Exfiltration
 > **Endpoint:** `POST /api/v1/fetch-preview` | **Parameter:** `url` | **Cloud Provider:** AWS
 
 ---
@@ -188,6 +188,7 @@ for proper application-level input validation.
 > ⭐ **TC-11** would succeed even if the blocklist is correctly implemented — tests the raw network boundary independent of application logic.
 
 ---
+<img width="1284" height="775" alt="image" src="https://github.com/user-attachments/assets/97c5b3fa-6279-4c86-8956-a3db03d2e2a6" />
 
 ## Part E — Systems Design Under Pressure
 
