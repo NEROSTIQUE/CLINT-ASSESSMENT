@@ -3,7 +3,6 @@
 
 ## Part E — Systems Design Under Pressure
 
-> *(Exactly 196 words — within the 150–200 word limit)*
 
 Deploy a dedicated OOB listener infrastructure using a wildcard DNS zone — for example,
 `*.oob.pipeline.io` — pointing to a cluster of lightweight HTTP and DNS listener servers.
