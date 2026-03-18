@@ -189,8 +189,8 @@ Enabling IMDSv2 does **not** make the application-level blocklist unnecessary:
 | **TC-02** | Decimal IP encoding bypass | `http://2852039166/latest/meta-data/` | `200 OK` — blocklist string-match misses decimal form | `400 Bad Request` | Returns `400`; server normalises IP before checking |
 | **TC-03** | Octal / hex IP encoding bypass | `http://0251.0376.0251.0376/latest/meta-data/` `http://0xa9fea9fe/latest/meta-data/` | `200 OK` — encoding accepted by HTTP client | `400 Bad Request` for both | Both return `400`; server normalises all numeric forms |
 | **TC-04** | IPv6-mapped address bypass | `http://[::ffff:169.254.169.254]/latest/meta-data/` `http://[::ffff:a9fe:a9fe]/latest/meta-data/` | `200 OK` — IPv4-mapped IPv6 resolves to metadata endpoint | `400 Bad Request` | Both return `400`; blocklist handles IPv6 notation |
-| **TC-05** | DNS rebinding | `http://ssrf.attacker.io/latest/meta-data/` (DNS → `169.254.169.254` on second resolution) | `200 OK` — metadata fetched after DNS TTL flip | `400 Bad Request` or connection refused | Returns `400` OR times out; no metadata in body |
-| **TC-06** | Open redirect / HTTP redirect chaining | `http://attacker.io/redirect` → `301` → `http://169.254.169.254/latest/meta-data/` | `200 OK` — server follows redirect transparently | `400 Bad Request` or redirect refused | Returns `400` on redirect target; no internal redirect followed |
+| **TC-05** | DNS rebinding / OOB callback | `http://oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/latest/meta-data/` | DNS + HTTP callback fires at Interactsh — server resolved and fetched the URL | `400 Bad Request` — no callback received | Zero interactions at Interactsh; returns `400` |
+| **TC-06** | Open redirect / OOB HTTP callback | `http://oob-tc06.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/` | OOB HTTP callback received — server fetched external URL | `400 Bad Request` — redirect refused | Returns `400`; no callback logged at Interactsh |
 | **TC-07** | Alternative metadata paths | `http://169.254.169.254/latest/meta-data/hostname` `http://169.254.169.254/latest/meta-data/public-keys/` | `200 OK` — non-credential paths unblocked | `400 Bad Request` for all paths | Both return `400`; blocklist is prefix-based, not path-specific |
 | **TC-08** | ECS alternate metadata endpoint | `http://169.254.170.2/v2/credentials/<role-id>` | `200 OK` — ECS endpoint not in blocklist | `400 Bad Request` | Returns `400`; blocklist covers `169.254.170.2` explicitly |
 | **TC-09** | Localhost variants | `http://0.0.0.0/latest/meta-data/` `http://0x7f000001/latest/meta-data/` `http://127.1/latest/meta-data/` | `200 OK` — shorthand resolved by HTTP client | `400 Bad Request` for all three | All three return `400`; all localhost forms normalised |
@@ -199,6 +199,154 @@ Enabling IMDSv2 does **not** make the application-level blocklist unnecessary:
 
 > ⭐ **TC-01** directly validates the client's claimed blocklist fix.
 > ⭐ **TC-11** would succeed even if the blocklist is correctly implemented — tests the raw network boundary independent of application logic.
+> 📡 **TC-05 / TC-06** use live Interactsh OOB subdomains — see [OOB Tool: Interactsh](#-oob-tool-interactsh) below for setup and correlation details.
+
+---
+
+## 📡 OOB Tool: Interactsh
+
+### Why Interactsh?
+
+Several SSRF bypass categories — DNS rebinding (TC-05), blind HTTP callbacks (TC-06), and
+any scenario where the server fetches a URL but returns nothing useful in its response body
+— are **completely undetectable by inspecting HTTP responses alone**. The server may silently
+fetch an attacker-supplied URL, leak internal signals over DNS, or follow a redirect without
+any evidence appearing in the response body or status code.
+
+This is why **out-of-band (OOB) detection** is essential. Instead of looking at what the
+server returns, OOB detection asks: *did the server reach out to us?*
+
+Interactsh solves this by providing:
+
+| Capability | How it helps |
+|------------|-------------|
+| **Wildcard DNS zone** (`*.oast.live`) | Every unique subdomain resolves to the Interactsh listener — DNS queries are logged with timestamp and source IP |
+| **HTTP listener** | Any HTTP request to a subdomain is logged with full headers and body |
+| **Unique subdomains per test** | `oob-tc05.{domain}` maps every callback unambiguously back to TC-05 |
+| **Source IP logging** | The IP that fired the DNS/HTTP request is the **target server's IP** — proof the server made the fetch |
+| **Free, zero infrastructure** | No server to host, no DNS zone to configure — works out of the box |
+
+> **In short:** If the target server fetches `http://oob-tc05.{domain}/latest/meta-data/`,
+> Interactsh logs a DNS query from the server's IP. This is definitive SSRF proof — even
+> if the response body contains nothing and the status code looks clean.
+
+---
+
+### Installation
+
+```bash
+# Option A — Install via Go (recommended)
+go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
+
+# Option B — Download prebuilt binary (Linux / macOS / Windows)
+# Visit: https://github.com/projectdiscovery/interactsh/releases
+# Download interactsh-client for your OS, then:
+chmod +x interactsh-client
+mv interactsh-client /usr/local/bin/
+```
+
+---
+
+### Starting a Session
+
+```bash
+interactsh-client -v
+```
+
+**Expected output:**
+
+```
+[INF] Current interactsh version 1.3.1 (latest)
+[INF] Listing 1 payload for OOB Testing
+[INF] d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
+```
+
+> The domain printed (`d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live`) is your **live
+> session domain**. Copy it — it is used directly in TC-05 and TC-06 payloads.
+
+---
+
+### How We Used It in This Assessment
+
+**Step 1 — Start Interactsh (Terminal 1)**
+
+```bash
+interactsh-client -v
+# Keep this running — it logs callbacks in real time
+```
+
+**Step 2 — Embed the domain in `input.json` payloads**
+
+TC-05 and TC-06 use unique subdomains derived from the Interactsh session domain:
+
+```
+TC-05 → http://oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/latest/meta-data/
+TC-06 → http://oob-tc06.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/
+```
+
+The prefix (`oob-tc05`, `oob-tc06`) is the correlation token — it maps every DNS/HTTP
+callback back to the exact test case that triggered it.
+
+**Step 3 — Run the script (Terminal 2)**
+
+```bash
+python3 verify_ssrf.py input.json
+```
+
+**Step 4 — What to look for in Interactsh**
+
+If the target server is vulnerable and actually fetches the URL, Terminal 1 shows:
+
+```
+[dns]  oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
+       from: 34.x.x.x  ← this is the TARGET SERVER's IP
+       at:   2026-03-18T16:44:43Z
+
+[http] GET /latest/meta-data/ HTTP/1.1
+       Host: oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
+       from: 34.x.x.x
+```
+
+This DNS/HTTP hit **proves the server made an outbound request** — confirming SSRF
+regardless of what the response body contained.
+
+---
+
+### Live Session Screenshot
+
+Both terminals running side by side — Interactsh listening (right), script executing (left):
+
+<img width="1284" height="775" alt="Interactsh and verify_ssrf.py running side by side" src="https://github.com/user-attachments/assets/06698919-7335-4c73-82be-a73419f32599" />
+
+> **Note on this run:** `httpbin.org/post` is an echo server — it does not fetch
+> user-supplied URLs. As a result, no DNS callbacks fired in Interactsh during this
+> mock run. The 10/10 FAILs are from the status code check (httpbin always returns `200`,
+> not the expected `400`). Against a real vulnerable endpoint, TC-05 and TC-06 would
+> trigger live DNS and HTTP callbacks, and the source IP logged by Interactsh would be
+> the target server's IP — definitive proof of SSRF.
+
+---
+
+### Correlation Map: Interactsh ↔ Test Cases ↔ Script
+
+```
+input.json payload                      Interactsh logs             Script verdict
+──────────────────────────────────────────────────────────────────────────────────
+oob-tc05.{domain}/latest/meta-data/ ──► DNS: oob-tc05.{domain} ──► TC-05: FAIL
+                                         from: <server IP>           (OOB callback)
+                                         HTTP: GET /latest/meta-data/
+
+oob-tc06.{domain}/              ────────► DNS: oob-tc06.{domain} ──► TC-06: FAIL
+                                         from: <server IP>           (OOB callback)
+                                         HTTP: GET /
+
+No callback for TC-01..TC-04,           (silence = no fetch        TC-01..TC-04: FAIL
+TC-07..TC-10                             confirmed for those)        (status code only)
+```
+
+> Each unique subdomain prefix (`oob-tc05`, `oob-tc06`) acts as a **correlation token**
+> — tying every OOB signal back to a specific test case in the structured JSON report
+> saved to `evidence/`.
 
 ---
 
@@ -271,7 +419,7 @@ unsuitable for production security work:
 | 2 | **No redirect-to-internal detection** — No logic checks whether a `Location` header points to an internal IP. A `302 → http://169.254.169.254/` is itself SSRF evidence, but the AI ignores it | Redirect SSRF missed |
 | 3 | **Binary status code check** — Only a single integer `expected_code` accepted. Real suites need `[400, 403, 422]` since frameworks reject with different codes | False negatives on valid rejections |
 | 4 | **No IP normalisation** — When redirect detection is added, it must resolve hostnames and normalise all IP encoding variants (decimal, octal, hex, IPv6-mapped). A plain string check on `Location` is insufficient | All encoding bypasses undetected |
-| 5 | **No OOB / out-of-band support** — No mechanism to start a local callback server or integrate with Interactsh. DNS rebinding and blind SSRF are completely undetectable without OOB | Blind SSRF missed entirely |
+| 5 | **No OOB / out-of-band support** — No mechanism to start a local callback server or integrate with Interactsh. DNS rebinding (TC-05) and blind SSRF (TC-06) are completely undetectable without OOB | Blind SSRF missed entirely |
 | 6 | **No evidence chain** — No report saving, no timestamping, no SHA-256 hashing. Security tooling for remediation verification must produce tamper-evident artefacts for audit | Unusable for formal reporting |
 
 ---
@@ -285,6 +433,7 @@ All six problems are fixed in `verify_ssrf.py` (Part D):
 - `expected_rejection_code` accepts both `int` and `list[int]`
 - `is_internal_ip()` covers RFC 1918, loopback, link-local, and exact metadata IPs
 - `CallbackServer` class — local OOB HTTP listener with `--oob` flag
+- Interactsh subdomains embedded in `input.json` for TC-05 and TC-06 — OOB correlation by subdomain prefix
 - `save_bonus_report()` — timestamped JSON + SHA-256 saved to `evidence/`
 - `start = None` initialised before `try` block — eliminates `UnboundLocalError` crash
 
@@ -301,6 +450,7 @@ SSRF Remediation Verification Script
 - Sends payloads to a target endpoint
 - Detects: unexpected status code, canary string, internal redirect, slow response
 - Supports local OOB callback server (--oob flag)
+- Interactsh subdomains in input.json handle external OOB (TC-05, TC-06)
 - Saves timestamped JSON report + SHA-256 hash to evidence/
 """
 
@@ -562,6 +712,12 @@ if __name__ == "__main__":
 }
 ```
 
+> **TC-05 and TC-06** use live Interactsh subdomains as payloads. While `verify_ssrf.py`
+> handles in-band detection (status, canary, redirect, timing), Interactsh running in a
+> second terminal handles the OOB signal — DNS and HTTP callbacks from the target server.
+> Both signals are complementary: the script records what the server *returned*,
+> Interactsh records what the server *fetched*.
+
 ---
 
 ### Usage
@@ -569,13 +725,16 @@ if __name__ == "__main__":
 ```bash
 pip install requests
 
-# Standard run
+# Terminal 1 — start Interactsh OOB listener FIRST
+interactsh-client -v
+
+# Terminal 2 — run the script
 python3 verify_ssrf.py input.json
 
-# With local OOB callback server
+# Optional: run with local OOB callback server as well
 python3 verify_ssrf.py input.json --oob
 
-# View evidence files
+# View evidence files after run
 ls -la evidence/
 ```
 
@@ -651,11 +810,8 @@ Failed: 10 / 10
 > supplied URLs. All 10 FAILs are correct: the expected rejection code was `400` and
 > httpbin returned `200` for every payload, confirming zero URL-blocklist enforcement on
 > this target. Against a real vulnerable endpoint, TC-05/TC-06 would additionally trigger
-> live DNS callbacks in Interactsh and TC-01 would return IAM credentials, triggering the
-> canary check.
-
-
-<img width="1284" height="775" alt="image" src="https://github.com/user-attachments/assets/06698919-7335-4c73-82be-a73419f32599" />
+> live DNS callbacks in Interactsh (source IP = target server) and TC-01 would return
+> IAM credentials triggering the canary check.
 
 ---
 
@@ -765,7 +921,7 @@ evidence/
 | Tests run | 10 |
 | Tests failed | **10 / 10** |
 | Blocklist enforcement | Not observed on any payload |
-| OOB infrastructure | Live — Interactsh ready to confirm server-side fetches |
+| OOB infrastructure | Live — Interactsh `d6tdc57...oast.live` ready to confirm server-side fetches |
 | IMDSv2 impact | Reduces credential exfiltration risk — does **not** fix SSRF root cause |
 | Recommendation | **Replace string-match blocklist with allowlist-based URL validation** |
 
