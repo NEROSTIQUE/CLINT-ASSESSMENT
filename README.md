@@ -654,6 +654,9 @@ Failed: 10 / 10
 > live DNS callbacks in Interactsh and TC-01 would return IAM credentials, triggering the
 > canary check.
 
+
+<img width="1284" height="775" alt="image" src="https://github.com/user-attachments/assets/06698919-7335-4c73-82be-a73419f32599" />
+
 ---
 
 ## 🏗️ Part E — Systems Design Under Pressure
