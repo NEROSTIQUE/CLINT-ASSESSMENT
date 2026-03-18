@@ -16,6 +16,7 @@
   - [Q3 — Three measurable conditions for a successful fix](#q3--three-measurable-conditions-for-a-successful-fix)
   - [Q4 — Does IMDSv2 make the blocklist unnecessary?](#q4--does-imdsv2-make-the-blocklist-unnecessary)
 - [Part B — Test Case Design](#part-b--test-case-design-25-pts)
+- [Part E — Systems Design Under Pressure](#part-e--Systems-Design-Under-Pressure-10-pts)
 
 ---
 
