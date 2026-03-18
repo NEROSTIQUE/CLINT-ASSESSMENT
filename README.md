@@ -203,130 +203,6 @@ Enabling IMDSv2 does **not** make the application-level blocklist unnecessary:
 
 ---
 
-## 📡 OOB Tool: Interactsh
-
-### Why Interactsh?
-
-Several SSRF bypass categories — DNS rebinding (TC-05), blind HTTP callbacks (TC-06), and
-any scenario where the server fetches a URL but returns nothing useful in its response body
-— are **completely undetectable by inspecting HTTP responses alone**. The server may silently
-fetch an attacker-supplied URL, leak internal signals over DNS, or follow a redirect without
-any evidence appearing in the response body or status code.
-
-This is why **out-of-band (OOB) detection** is essential. Instead of looking at what the
-server returns, OOB detection asks: *did the server reach out to us?*
-
-Interactsh solves this by providing:
-
-| Capability | How it helps |
-|------------|-------------|
-| **Wildcard DNS zone** (`*.oast.live`) | Every unique subdomain resolves to the Interactsh listener — DNS queries are logged with timestamp and source IP |
-| **HTTP listener** | Any HTTP request to a subdomain is logged with full headers and body |
-| **Unique subdomains per test** | `oob-tc05.{domain}` maps every callback unambiguously back to TC-05 |
-| **Source IP logging** | The IP that fired the DNS/HTTP request is the **target server's IP** — proof the server made the fetch |
-| **Free, zero infrastructure** | No server to host, no DNS zone to configure — works out of the box |
-
-> **In short:** If the target server fetches `http://oob-tc05.{domain}/latest/meta-data/`,
-> Interactsh logs a DNS query from the server's IP. This is definitive SSRF proof — even
-> if the response body contains nothing and the status code looks clean.
-
----
-
-### Installation
-
-```bash
-# Option A — Install via Go (recommended)
-go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
-
-# Option B — Download prebuilt binary (Linux / macOS / Windows)
-# Visit: https://github.com/projectdiscovery/interactsh/releases
-# Download interactsh-client for your OS, then:
-chmod +x interactsh-client
-mv interactsh-client /usr/local/bin/
-```
-
----
-
-### Starting a Session
-
-```bash
-interactsh-client -v
-```
-
-**Expected output:**
-
-```
-[INF] Current interactsh version 1.3.1 (latest)
-[INF] Listing 1 payload for OOB Testing
-[INF] d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
-```
-
-> The domain printed (`d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live`) is your **live
-> session domain**. Copy it — it is used directly in TC-05 and TC-06 payloads.
-
----
-
-### How We Used It in This Assessment
-
-**Step 1 — Start Interactsh (Terminal 1)**
-
-```bash
-interactsh-client -v
-# Keep this running — it logs callbacks in real time
-```
-
-**Step 2 — Embed the domain in `input.json` payloads**
-
-TC-05 and TC-06 use unique subdomains derived from the Interactsh session domain:
-
-```
-TC-05 → http://oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/latest/meta-data/
-TC-06 → http://oob-tc06.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/
-```
-
-The prefix (`oob-tc05`, `oob-tc06`) is the correlation token — it maps every DNS/HTTP
-callback back to the exact test case that triggered it.
-
-**Step 3 — Run the script (Terminal 2)**
-
-```bash
-python3 verify_ssrf.py input.json
-```
-
-**Step 4 — What to look for in Interactsh**
-
-If the target server is vulnerable and actually fetches the URL, Terminal 1 shows:
-
-```
-[dns]  oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
-       from: 34.x.x.x  ← this is the TARGET SERVER's IP
-       at:   2026-03-18T16:44:43Z
-
-[http] GET /latest/meta-data/ HTTP/1.1
-       Host: oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
-       from: 34.x.x.x
-```
-
-This DNS/HTTP hit **proves the server made an outbound request** — confirming SSRF
-regardless of what the response body contained.
-
----
-
-### Live Session Screenshot
-
-Both terminals running side by side — Interactsh listening (right), script executing (left):
-
-<img width="1284" height="775" alt="Interactsh and verify_ssrf.py running side by side" src="https://github.com/user-attachments/assets/06698919-7335-4c73-82be-a73419f32599" />
-
-> **Note on this run:** `httpbin.org/post` is an echo server — it does not fetch
-> user-supplied URLs. As a result, no DNS callbacks fired in Interactsh during this
-> mock run. The 10/10 FAILs are from the status code check (httpbin always returns `200`,
-> not the expected `400`). Against a real vulnerable endpoint, TC-05 and TC-06 would
-> trigger live DNS and HTTP callbacks, and the source IP logged by Interactsh would be
-> the target server's IP — definitive proof of SSRF.
-
----
-
 ### Correlation Map: Interactsh ↔ Test Cases ↔ Script
 
 ```
@@ -813,6 +689,129 @@ Failed: 10 / 10
 > live DNS callbacks in Interactsh (source IP = target server) and TC-01 would return
 > IAM credentials triggering the canary check.
 
+---
+
+## 📡 OOB Tool: Interactsh
+
+### Why Interactsh?
+
+Several SSRF bypass categories — DNS rebinding (TC-05), blind HTTP callbacks (TC-06), and
+any scenario where the server fetches a URL but returns nothing useful in its response body
+— are **completely undetectable by inspecting HTTP responses alone**. The server may silently
+fetch an attacker-supplied URL, leak internal signals over DNS, or follow a redirect without
+any evidence appearing in the response body or status code.
+
+This is why **out-of-band (OOB) detection** is essential. Instead of looking at what the
+server returns, OOB detection asks: *did the server reach out to us?*
+
+Interactsh solves this by providing:
+
+| Capability | How it helps |
+|------------|-------------|
+| **Wildcard DNS zone** (`*.oast.live`) | Every unique subdomain resolves to the Interactsh listener — DNS queries are logged with timestamp and source IP |
+| **HTTP listener** | Any HTTP request to a subdomain is logged with full headers and body |
+| **Unique subdomains per test** | `oob-tc05.{domain}` maps every callback unambiguously back to TC-05 |
+| **Source IP logging** | The IP that fired the DNS/HTTP request is the **target server's IP** — proof the server made the fetch |
+| **Free, zero infrastructure** | No server to host, no DNS zone to configure — works out of the box |
+
+> **In short:** If the target server fetches `http://oob-tc05.{domain}/latest/meta-data/`,
+> Interactsh logs a DNS query from the server's IP. This is definitive SSRF proof — even
+> if the response body contains nothing and the status code looks clean.
+
+---
+
+### Installation
+
+```bash
+# Option A — Install via Go (recommended)
+go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
+
+# Option B — Download prebuilt binary (Linux / macOS / Windows)
+# Visit: https://github.com/projectdiscovery/interactsh/releases
+# Download interactsh-client for your OS, then:
+chmod +x interactsh-client
+mv interactsh-client /usr/local/bin/
+```
+
+---
+
+### Starting a Session
+
+```bash
+interactsh-client -v
+```
+
+**Expected output:**
+
+```
+[INF] Current interactsh version 1.3.1 (latest)
+[INF] Listing 1 payload for OOB Testing
+[INF] d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
+```
+
+> The domain printed (`d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live`) is your **live
+> session domain**. Copy it — it is used directly in TC-05 and TC-06 payloads.
+
+---
+
+### How We Used It in This Assessment
+
+**Step 1 — Start Interactsh (Terminal 1)**
+
+```bash
+interactsh-client -v
+# Keep this running — it logs callbacks in real time
+```
+
+**Step 2 — Embed the domain in `input.json` payloads**
+
+TC-05 and TC-06 use unique subdomains derived from the Interactsh session domain:
+
+```
+TC-05 → http://oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/latest/meta-data/
+TC-06 → http://oob-tc06.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live/
+```
+
+The prefix (`oob-tc05`, `oob-tc06`) is the correlation token — it maps every DNS/HTTP
+callback back to the exact test case that triggered it.
+
+**Step 3 — Run the script (Terminal 2)**
+
+```bash
+python3 verify_ssrf.py input.json
+```
+
+**Step 4 — What to look for in Interactsh**
+
+If the target server is vulnerable and actually fetches the URL, Terminal 1 shows:
+
+```
+[dns]  oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
+       from: 34.x.x.x  ← this is the TARGET SERVER's IP
+       at:   2026-03-18T16:44:43Z
+
+[http] GET /latest/meta-data/ HTTP/1.1
+       Host: oob-tc05.d6tdc57qeopnki5c9k0gb1sohs38y9r1h.oast.live
+       from: 34.x.x.x
+```
+
+This DNS/HTTP hit **proves the server made an outbound request** — confirming SSRF
+regardless of what the response body contained.
+
+---
+
+### Live Session Screenshot
+
+Both terminals running side by side — Interactsh listening (right), script executing (left):
+
+<img width="1284" height="775" alt="Interactsh and verify_ssrf.py running side by side" src="https://github.com/user-attachments/assets/06698919-7335-4c73-82be-a73419f32599" />
+
+> **Note on this run:** `httpbin.org/post` is an echo server — it does not fetch
+> user-supplied URLs. As a result, no DNS callbacks fired in Interactsh during this
+> mock run. The 10/10 FAILs are from the status code check (httpbin always returns `200`,
+> not the expected `400`). Against a real vulnerable endpoint, TC-05 and TC-06 would
+> trigger live DNS and HTTP callbacks, and the source IP logged by Interactsh would be
+> the target server's IP — definitive proof of SSRF.
 ---
 
 ## 🏗️ Part E — Systems Design Under Pressure
