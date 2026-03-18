@@ -2,7 +2,6 @@
 
 <div align="center">
 
-![Finding](https://img.shields.io/badge/Finding-FIND--0114-blue?style=flat-square)
 ![Type](https://img.shields.io/badge/Type-SSRF-critical?style=flat-square&color=red)
 ![Cloud](https://img.shields.io/badge/Cloud-AWS-orange?style=flat-square)
 ![Verdict](https://img.shields.io/badge/Verdict-REMEDIATION%20FAILED-red?style=flat-square)
@@ -13,7 +12,6 @@
 ---
 
 ```
-Finding ID  : FIND-0114
 Endpoint    : POST /api/v1/fetch-preview
 Parameter   : url
 Cloud       : AWS EC2 (IMDS)
