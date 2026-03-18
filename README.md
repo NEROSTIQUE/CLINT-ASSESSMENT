@@ -992,7 +992,3 @@ evidence/
 | Recommendation | **Replace string-match blocklist with allowlist-based URL validation** |
 
 ---
-
-<div align="center">
-<sub>Security Automation Team &nbsp;|&nbsp; FIND-0114 &nbsp;|&nbsp; 2026-03-18 &nbsp;|&nbsp; Confidential</sub>
-</div>
