@@ -189,7 +189,7 @@ for proper application-level input validation.
 
 ---
 
-*Security Automation Team — FIND-0114 — 2026-03-18 — Confidential*## Part E — Systems Design Under Pressure
+## Part E — Systems Design Under Pressure
 
 
 Deploy a dedicated OOB listener infrastructure using a wildcard DNS zone — for example,
