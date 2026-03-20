@@ -10,7 +10,7 @@
 </div>
 
 ---
-[![RECHECK TOOL](https://img.shields.io/badge/RECHECK%20TOOL-Remediation%20Verification-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/NEROSTIQUE/REMCHECK)
+[![REMCHECK TOOL](https://img.shields.io/badge/REMCHECK%20TOOL-Remediation%20Verification-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/NEROSTIQUE/REMCHECK)
 ```
 Endpoint    : POST /api/v1/fetch-preview
 Parameter   : url
